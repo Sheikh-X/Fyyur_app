@@ -10,4 +10,4 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 # TODO IMPLEMENT DATABASE URL
-SQLALCHEMY_DATABASE_URI = 'postgresql://afeez:apple@localhost:5432/fyyur'
+SQLALCHEMY_DATABASE_URI = 'postgresql://afeez:apple@localhost:5432/fyyurapp'
