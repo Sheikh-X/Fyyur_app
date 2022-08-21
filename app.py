@@ -31,80 +31,6 @@ db = SQLAlchemy(app)
 csrf.init_app(app)
 migrate = Migrate(app, db)
 
-class Genre(db.Model):
-    __tablename__ = 'Genre'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-
-
-artist_genre_table = db.Table('artist_genre_table',
-    db.Column('genre_id', db.Integer, db.ForeignKey('Genre.id'), primary_key=True),
-    db.Column('artist_id', db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
-)
-
-venue_genre_table = db.Table('venue_genre_table',
-    db.Column('genre_id', db.Integer, db.ForeignKey('Genre.id'), primary_key=True),
-    db.Column('venue_id', db.Integer, db.ForeignKey('Venue.id'), primary_key=True)
-)
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    genres = db.relationship('Genre', secondary=venue_genre_table, backref=db.backref('venues'))
-    website_link = db.Column(db.String(140))
-    seeking_talent = db.Column(db.Boolean, default=False)
-    seeking_description = db.Column(db.String(140))
-    shows = db.relationship('Show', backref='venue', lazy=True) 
-
-
-    def __repr__(self):
-        return f'<Venue {self.id} {self.name}>'
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-   
-    genres = db.relationship('Genre', secondary=artist_genre_table, backref=db.backref('artists'))
-    website_link = db.Column(db.String(140))
-    seeking_venue = db.Column(db.Boolean, default=False)
-    seeking_description = db.Column(db.String(140))
-
-    shows = db.relationship('Show', backref='artist', lazy=True)
-
-    def __repr__(self):
-        return f'<Artist {self.id} {self.name}>'
-    
-  
-class Show(db.Model):
-    __tablename__ = 'Show'
-
-    id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f'<Show {self.id} {self.venue_id} {self.artist_id} {self.start_time}>'
-
-
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
@@ -149,7 +75,7 @@ def venues():
 
   now = datetime.now()    # get current time
   for location in cities_states: 
-        venues_list = []
+        venues_array = []
         for venue in venues:
             if (venue.city == location[0]) and (venue.state == location[1]):
                 venue_shows = Show.query.filter_by(venue_id=venue.id).all()
@@ -158,7 +84,7 @@ def venues():
                     if show.start_time > now:
                         num_upcoming += 1
 
-                venues_list.append({
+                venues_array.append({
                     "id": venue.id,
                     "name": venue.name,
                     "num_upcoming_shows": num_upcoming
@@ -166,7 +92,7 @@ def venues():
         data.append({ # add venue to dictionary
             "city": location[0],
             "state": location[1],
-            "venues": venues_list
+            "venues": venues_array
         })
   return render_template('pages/venues.html', areas=data);
 
@@ -566,9 +492,8 @@ def edit_venue_submission(venue_id):
     state = form.state.data
     address = form.address.data.strip()
     phone = form.phone.data
-    # Normalize DB.  Strip anything from phone that isn't a number
-    phone = re.sub('\D', '', phone) # e.g. (819) 392-1234 --> 8193921234
-    genres = form.genres.data                   # ['Alternative', 'Classical', 'Country']
+    phone = re.sub('\D', '', phone) 
+    genres = form.genres.data                  
     seeking_talent = True if form.seeking_talent.data == 'Yes' else False
     seeking_description = form.seeking_description.data.strip()
     image_link = form.image_link.data.strip()
@@ -601,26 +526,14 @@ def edit_venue_submission(venue_id):
             venue.image_link = image_link
             venue.website_link = website_link
             venue.facebook_link = facebook_link
-
-            # First we need to clear (delete) all the existing genres off the venue otherwise it just adds them
-            
-            # For some reason this didn't work! Probably has to do with flushing/lazy, etc.
-            # for genre in venue.genres:
-            #     venue.genres.remove(genre)
-                        
-            # venue.genres.clear()  # Either of these work.
             venue.genres = []
-            
-            # genres can't take a list of strings, it needs to be assigned to db objects
-            # genres from the form is like: ['Alternative', 'Classical', 'Country']
+
             for genre in genres:
                 fetch_genre = Genre.query.filter_by(name=genre).one_or_none()  # Throws an exception if more than one returned, returns None if none
                 if fetch_genre:
-                    # if found a genre, append it to the list
                     venue.genres.append(fetch_genre)
 
                 else:
-                    # fetch_genre was None. It's not created yet, so create it
                     new_genre = Genre(name=genre)
                     db.session.add(new_genre)
                     venue.genres.append(new_genre)  # Create a new Genre item and append it
@@ -712,8 +625,8 @@ def create_artist_submission():
 def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
-  data=[]
   shows = Show.query.all()
+  data=[]
 
   for show in shows:
         data.append({
@@ -735,30 +648,28 @@ def create_shows():
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
-  form =  ShowForm()
-  artist_id = form.artist_id.data.strip()
-  venue_id = form.venue_id.data.strip()
-  start_time = form.start_time.data
+  # TODO: insert form data as a new Show record in the db, instead
 
-  error_in_insert = False
-    
+  # on successful db insert, flash success
   try:
-        new_show = Show(start_time=start_time, artist_id=artist_id, venue_id=venue_id)
-        db.session.add(new_show)
-        db.session.commit()
+      show = Show(
+          artist_id=request.form['artist_id'],
+          venue_id=request.form['venue_id'],
+          start_time=request.form['start_time']
+      )
+      db.session.add(show)
+      db.session.commit()
+      flash('Show was successfully added!')
   except Exception as e:
-        error_in_insert = True
-        print(f'Exception "{e}" in create_show_submission()')
-        db.session.rollback()
+      print(e)
+      flash('An error occurred. Show could not be added')
+      db.session.rollback()
   finally:
-        db.session.close()
-
-  if error_in_insert:
-        flash(f'An error occurred.  Show could not be listed.')
-        print("Error in create_show_submission()")
-  else:
-   flash('Show was successfully listed!')
-  
+      db.session.close()
+  flash('Show was successfully listed!')
+  # TODO: on unsuccessful db insert, flash an error instead.
+  # e.g., flash('An error occurred. Show could not be listed.')
+  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
   return render_template('pages/home.html')
 
 @app.errorhandler(404)
