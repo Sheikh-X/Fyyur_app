@@ -172,14 +172,14 @@ def venues():
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-  # TODO: implement search on venues with partial string search. Ensure it is case-insensitive.
-  # seach for Hop should return "The Musical Hop".
-  # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  search_term = request.form.get('search_term', '').strip()
-  venues = Venue.query.filter(Venue.name.ilike(f'%{search_term}%')).all()
-  venue_list = []
-  now = datetime.now()    # get current time
-  for venue in venues:
+    search_term = request.form.get('search_term', '').strip()
+
+    
+    venues = Venue.query.filter(Venue.name.ilike('%' + search_term + '%')).all()   
+   
+    venue_list = []
+    now = datetime.now()
+    for venue in venues:
         venue_shows = Show.query.filter_by(venue_id=venue.id).all()
         num_upcoming = 0
         for show in venue_shows:
@@ -189,14 +189,15 @@ def search_venues():
         venue_list.append({
             "id": venue.id,
             "name": venue.name,
-            "num_upcoming_shows": num_upcoming
+            "num_upcoming_shows": num_upcoming  
         })
-  response = {
-    "count": len(venue_list),
-    "data": venue_list
-  }
-  return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
+    response = {
+        "count": len(venues),
+        "data": venue_list
+    }
+   
+    return render_template('pages/search_venues.html', results=response, search_term=search_term)
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   venue = Venue.query.get(venue_id)
@@ -557,6 +558,7 @@ def edit_venue(venue_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
+    # Much of this code same as /venue/create view.
     form = VenueForm()
 
     name = form.name.data.strip()
@@ -564,22 +566,30 @@ def edit_venue_submission(venue_id):
     state = form.state.data
     address = form.address.data.strip()
     phone = form.phone.data
-    phone = re.sub('\D', '', phone) 
-    genres = form.genres.data               
+    # Normalize DB.  Strip anything from phone that isn't a number
+    phone = re.sub('\D', '', phone) # e.g. (819) 392-1234 --> 8193921234
+    genres = form.genres.data                   # ['Alternative', 'Classical', 'Country']
     seeking_talent = True if form.seeking_talent.data == 'Yes' else False
     seeking_description = form.seeking_description.data.strip()
     image_link = form.image_link.data.strip()
     website_link = form.website_link.data.strip()
     facebook_link = form.facebook_link.data.strip()
-
+    
+    # Redirect back to form if errors in form validation
     if not form.validate():
         flash( form.errors )
         return redirect(url_for('edit_venue_submission', venue_id=venue_id))
 
     else:
-        error_in_insert = False
-        try: # insert venue into DB
+        error_in_update = False
+
+        # Insert form data into DB
+        try:
+            # First get the existing venue object
             venue = Venue.query.get(venue_id)
+            # venue = Venue.query.filter_by(id=venue_id).one_or_none()
+
+            # Update fields
             venue.name = name
             venue.city = city
             venue.state = state
@@ -591,18 +601,31 @@ def edit_venue_submission(venue_id):
             venue.image_link = image_link
             venue.website_link = website_link
             venue.facebook_link = facebook_link
+
+            # First we need to clear (delete) all the existing genres off the venue otherwise it just adds them
+            
+            # For some reason this didn't work! Probably has to do with flushing/lazy, etc.
+            # for genre in venue.genres:
+            #     venue.genres.remove(genre)
+                        
+            # venue.genres.clear()  # Either of these work.
             venue.genres = []
-           
+            
+            # genres can't take a list of strings, it needs to be assigned to db objects
+            # genres from the form is like: ['Alternative', 'Classical', 'Country']
             for genre in genres:
                 fetch_genre = Genre.query.filter_by(name=genre).one_or_none()  # Throws an exception if more than one returned, returns None if none
                 if fetch_genre:
+                    # if found a genre, append it to the list
                     venue.genres.append(fetch_genre)
 
                 else:
+                    # fetch_genre was None. It's not created yet, so create it
                     new_genre = Genre(name=genre)
                     db.session.add(new_genre)
-                    venue.genres.append(new_genre)
-           
+                    venue.genres.append(new_genre)  # Create a new Genre item and append it
+
+            # Attempt to save everything
             db.session.commit()
         except Exception as e:
             error_in_update = True
@@ -619,7 +642,6 @@ def edit_venue_submission(venue_id):
             flash('An error occurred. Venue ' + name + ' could not be updated.')
             print("Error in edit_venue_submission()")
             abort(500)
-        
 
 #  Create Artist
 #  ----------------------------------------------------------------
@@ -724,7 +746,7 @@ def create_show_submission():
         new_show = Show(start_time=start_time, artist_id=artist_id, venue_id=venue_id)
         db.session.add(new_show)
         db.session.commit()
-  except:
+  except Exception as e:
         error_in_insert = True
         print(f'Exception "{e}" in create_show_submission()')
         db.session.rollback()
