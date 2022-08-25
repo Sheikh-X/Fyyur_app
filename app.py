@@ -62,71 +62,42 @@ def index():
 
 @app.route('/venues')
 def venues():
-  # TODO: replace with real venues data.
-  #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
-  venues = Venue.query.all()
-  data=[]
-  cities_states = set()
-  for venue in venues:
-        cities_states.add( (venue.city, venue.state) )  # add city and state to set
-  
-  cities_states = list(cities_states) # convert set to list
-  cities_states.sort(key=itemgetter(1,0))     # sort by state then city
+    data = []
+    cities = db.session.query(Venue.city, Venue.state).distinct()
 
-  now = datetime.now()    # get current time
-  for location in cities_states: 
-        venues_array = []
+    for city in cities:
+        venues = db.session.query(Venue).filter_by(
+            city=city.city, state=city.state).all()
+
         for venue in venues:
-            if (venue.city == location[0]) and (venue.state == location[1]):
-                venue_shows = Show.query.filter_by(venue_id=venue.id).all()
-                num_upcoming = 0
-                for show in venue_shows:
-                    if show.start_time > now:
-                        num_upcoming += 1
-
-                venues_array.append({
+            data.append({
+                "city": city.city,
+                "state": city.state,
+                "venues": [{
                     "id": venue.id,
                     "name": venue.name,
-                    "num_upcoming_shows": num_upcoming
-                })
-        data.append({ # add venue to dictionary
-            "city": location[0],
-            "state": location[1],
-            "venues": venues_array
-        })
-  return render_template('pages/venues.html', areas=data);
+                    "num_upcoming_shows": db.session.query(Show).filter_by(
+                        venue_id=venue.id).count()
+                }]
+            })
+
+    return render_template('pages/venues.html', areas=data)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
     search_term = request.form.get('search_term', '').strip()
-
-    
-    venues = Venue.query.filter(Venue.name.ilike('%' + search_term + '%')).all()   
+    results = Venue.query.filter(Venue.name.ilike('%' + search_term + '%')).all()   
    
-    venue_list = []
-    now = datetime.now()
-    for venue in venues:
-        venue_shows = Show.query.filter_by(venue_id=venue.id).all()
-        num_upcoming = 0
-        for show in venue_shows:
-            if show.start_time > now:
-                num_upcoming += 1
-
-        venue_list.append({
-            "id": venue.id,
-            "name": venue.name,
-            "num_upcoming_shows": num_upcoming  
-        })
-
     response = {
-        "count": len(venues),
-        "data": venue_list
+        "count": len(results),
+        "data": results
     }
    
     return render_template('pages/search_venues.html', results=response, search_term=search_term)
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   venue = Venue.query.get(venue_id)
+  data = venue._dict_
   if not venue:
         return redirect(url_for('index')) # redirect to index if venue not found
   else:
@@ -154,24 +125,23 @@ def show_venue(venue_id):
                     "start_time": format_datetime(str(show.start_time))
                 })
 
-        data = {
-            "id": venue_id,
-            "name": venue.name,
-            "genres": genres,
-            "address": venue.address,
-            "city": venue.city,
-            "state": venue.state,
-            "phone": (venue.phone[:3] + '-' + venue.phone[3:6] + '-' + venue.phone[6:]), # format phone number
-            "website_link": venue.website_link,
-            "facebook_link": venue.facebook_link,
-            "seeking_talent": venue.seeking_talent,
-            "seeking_description": venue.seeking_description,
-            "image_link": venue.image_link,
-            "past_shows": past_shows,
-            "past_shows_count": past_shows_count,
-            "upcoming_shows": upcoming_shows,
-            "upcoming_shows_count": upcoming_shows_count
-        }
+        data["id"]= venue_id,
+        data[ "name"]= venue.name,
+        data["genres"]=genres,
+        data["address"]= venue.address,
+        data["city"]= venue.city,
+        data["state"]= venue.state,
+        data["phone"]= (venue.phone[:3] + '-' + venue.phone[3:6] + '-' + venue.phone[6:]), 
+        data[ "website_link"]= venue.website_link,
+        data["facebook_link"]= venue.facebook_link,
+        data[ "seeking_talent"]= venue.seeking_talent,
+        data[ "seeking_description"]= venue.seeking_description,
+        data["image_link"]= venue.image_link,
+        data[ "past_shows"]= past_shows,
+        data[ "past_shows_count"]= past_shows_count,
+        data[ "upcoming_shows"]= upcoming_shows,
+        data["upcoming_shows_count"]= upcoming_shows_count
+        
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
