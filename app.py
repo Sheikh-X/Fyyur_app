@@ -97,7 +97,7 @@ def search_venues():
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   venue = Venue.query.get(venue_id)
-  data = venue._dict_
+  data = venue.__dict__
   if not venue:
         return redirect(url_for('index')) # redirect to index if venue not found
   else:
