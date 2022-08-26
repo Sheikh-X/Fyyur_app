@@ -97,11 +97,9 @@ def search_venues():
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   venue = Venue.query.get(venue_id)
-  data = venue.__dict__
   if not venue:
-        return redirect(url_for('index')) # redirect to index if venue not found
+        return redirect(url_for('index'))
   else:
-        genres = [ genre.name for genre in venue.genres ]
         past_shows = []
         past_shows_count = 0
         upcoming_shows = []
@@ -124,23 +122,44 @@ def show_venue(venue_id):
                     "artist_image_link": show.artist.image_link,
                     "start_time": format_datetime(str(show.start_time))
                 })
-
-        data["id"]= venue_id,
-        data[ "name"]= venue.name,
-        data["genres"]=genres,
-        data["address"]= venue.address,
-        data["city"]= venue.city,
-        data["state"]= venue.state,
-        data["phone"]= (venue.phone[:3] + '-' + venue.phone[3:6] + '-' + venue.phone[6:]), 
-        data[ "website_link"]= venue.website_link,
-        data["facebook_link"]= venue.facebook_link,
-        data[ "seeking_talent"]= venue.seeking_talent,
-        data[ "seeking_description"]= venue.seeking_description,
-        data["image_link"]= venue.image_link,
-        data[ "past_shows"]= past_shows,
-        data[ "past_shows_count"]= past_shows_count,
-        data[ "upcoming_shows"]= upcoming_shows,
-        data["upcoming_shows_count"]= upcoming_shows_count
+        #this dictionary is used to pass the data to the template but didn't work and I couldn't figure out why
+        # data = venue.__dict__
+        # data["id"]= venue_id,
+        # data[ "name"]= venue.name,
+        # data["genres"]=genres,
+        # data["address"]= venue.address,
+        # data["city"]= venue.city,
+        # data["state"]= venue.state,
+        # data["phone"]= (venue.phone[:3] + '-' + venue.phone[3:6] + '-' + venue.phone[6:]), 
+        # data[ "website_link"]= venue.website_link,
+        # data["facebook_link"]= venue.facebook_link,
+        # data[ "seeking_talent"]= venue.seeking_talent,
+        # data[ "seeking_description"]= venue.seeking_description,
+        # data["image_link"]= venue.image_link,
+        # data[ "past_shows"]= past_shows,
+        # data["start_time"] = past_shows.start_time,
+        # data[ "past_shows_count"]= past_shows_count,
+        # data[ "upcoming_shows"]= upcoming_shows,
+        # data["upcoming_shows_count"]= upcoming_shows_count
+        data={
+    "id": venue.id,
+    "name": venue.name,
+    "genres": venue.genres,
+    "address": venue.address,
+    "city": venue.city,
+    "state": venue.state,
+    "phone": venue.phone,
+    "website_link": venue.website_link,
+    "facebook_link": venue.facebook_link,
+    "seeking_talent": venue.seeking_talent,
+    "seeking_description":venue.seeking_description,
+    "image_link": venue.image_link,
+    "past_shows": past_shows,
+    "upcoming_shows": upcoming_shows,
+    "past_shows_count": len(past_shows),
+    "upcoming_shows_count": len(upcoming_shows)
+  }        
+      
         
   return render_template('pages/show_venue.html', venue=data)
 
